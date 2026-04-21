@@ -39,7 +39,7 @@ import {
   signOut,
   User
 } from 'firebase/auth';
-import { doc, getDocFromServer } from 'firebase/firestore';
+import { doc, getDocFromServer, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './lib/firebase';
 import { cn } from './lib/utils';
 import { GlassCard } from './components/GlassCard';
@@ -133,7 +133,20 @@ export default function App() {
   const handleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const u = result.user;
+      
+      // Initialize User Profile
+      if (u) {
+        const userRef = doc(db, 'users', u.uid);
+        await setDoc(userRef, {
+          uid: u.uid,
+          email: u.email,
+          displayName: u.displayName || 'Desk Officer',
+          role: 'officer', // Default role
+          lastLogin: serverTimestamp()
+        }, { merge: true });
+      }
     } catch (error) {
       console.error("Login failed:", error);
     }

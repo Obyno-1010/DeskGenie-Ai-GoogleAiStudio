@@ -1,0 +1,31 @@
+# Set default behavior to handle line endings.
+* text=auto eol=lf
+
+# Force LF for text files that should always have it
+*.js text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+
+# Explicitly mark binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+
+# Linguist overrides
+# firestore.rules is code but might be seen differently
+firestore.rules linguist-language=Firestore-Security-Rules
+
+# Ensure lockfiles are treated appropriately
+package-lock.json linguist-generated

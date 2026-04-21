@@ -57,25 +57,29 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 </div>
 
                 <div className="flex w-full gap-4 pt-4">
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.05, backgroundColor: "rgba(255, 255, 255, 0.15)" }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={onClose}
-                    className="flex-1 py-4 px-6 rounded-2xl bg-white/5 text-slate-300 font-bold hover:bg-white/10 border border-white/10 transition-all uppercase tracking-widest text-[10px]"
+                    className="flex-1 py-4 px-6 rounded-2xl bg-white/5 text-slate-300 font-bold border border-white/10 transition-all uppercase tracking-widest text-[10px]"
                   >
                     {cancelLabel}
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05, filter: "brightness(1.1)" }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => {
                       onConfirm();
                       onClose();
                     }}
                     className={`flex-1 py-4 px-6 rounded-2xl font-bold text-white transition-all uppercase tracking-widest text-[10px] shadow-lg ${
                       type === 'danger' 
-                        ? 'bg-red-600 hover:bg-red-500 shadow-red-600/20' 
-                        : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'
+                        ? 'bg-red-600 shadow-red-600/20' 
+                        : 'bg-indigo-600 shadow-indigo-600/20'
                     }`}
                   >
                     {confirmLabel}
-                  </button>
+                  </motion.button>
                 </div>
               </div>
 

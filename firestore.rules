@@ -80,15 +80,12 @@ service cloud.firestore {
     }
     
     // Grounding Protocols
-    match /protocols {
-      allow list: if isSignedIn();
-      match /{protocolId} {
-        allow get: if isSignedIn();
-        allow create: if isAdmin() && isValidProtocol(incoming());
-        allow update: if isAdmin() && isValidProtocol(incoming()) && 
-                      incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'keywords', 'lastUpdated', 'category']);
-        allow delete: if isAdmin();
-      }
+    match /protocols/{document=**} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidProtocol(incoming());
+      allow update: if isAdmin() && isValidProtocol(incoming()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'keywords', 'lastUpdated', 'category']);
+      allow delete: if isAdmin();
     }
     
     // Admins helper collection

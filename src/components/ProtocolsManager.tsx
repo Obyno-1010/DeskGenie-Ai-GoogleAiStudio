@@ -63,13 +63,15 @@ export const ProtocolsManager: React.FC<Props> = ({ protocols, onSave, onDelete 
           <h2 className="text-4xl font-bold text-white tracking-tight">Grounding <span className="text-indigo-400">Protocols</span></h2>
           <p className="text-slate-500 italic">Inject local knowledge and intelligence directives.</p>
         </div>
-        <button 
+        <motion.button 
+          whileHover={{ scale: 1.05, backgroundColor: "#6366f1" }}
+          whileTap={{ scale: 0.95 }}
           onClick={handleStartNew}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-xl shadow-indigo-600/20"
+          className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-xl shadow-indigo-600/20"
         >
           <Plus className="w-5 h-5" />
           New Protocol
-        </button>
+        </motion.button>
       </div>
 
       <div className="flex gap-6 h-full overflow-hidden">
@@ -86,12 +88,31 @@ export const ProtocolsManager: React.FC<Props> = ({ protocols, onSave, onDelete 
             />
           </div>
 
-          <div className="flex-1 overflow-auto space-y-4 pr-2 custom-scrollbar">
+          <motion.div 
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0 },
+              visible: {
+                opacity: 1,
+                transition: {
+                  staggerChildren: 0.05
+                }
+              }
+            }}
+            className="flex-1 overflow-auto space-y-4 pr-2 custom-scrollbar"
+          >
             {filtered.map(p => (
-              <button 
+              <motion.button 
                 key={p.id}
+                variants={{
+                  hidden: { opacity: 0, x: -20 },
+                  visible: { opacity: 1, x: 0 }
+                }}
+                whileHover={{ scale: 1.02, x: 4, borderColor: "rgba(99, 102, 241, 0.3)" }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => handleEdit(p)}
-                className="w-full text-left glass-card p-6 rounded-3xl border-white/5 hover:border-indigo-500/30 transition-all group relative overflow-hidden bg-white/5"
+                className="w-full text-left glass-card p-6 rounded-3xl border-white/5 transition-all group relative overflow-hidden bg-white/5"
               >
                 <div className="relative z-10 space-y-3">
                   <div className="flex items-start justify-between">
@@ -117,15 +138,19 @@ export const ProtocolsManager: React.FC<Props> = ({ protocols, onSave, onDelete 
                     )}
                   </div>
                 </div>
-              </button>
+              </motion.button>
             ))}
             {filtered.length === 0 && (
-              <div className="text-center py-20 opacity-20 space-y-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.2 }}
+                className="text-center py-20 space-y-4"
+              >
                  <History className="w-12 h-12 mx-auto" />
                  <p className="font-mono text-sm">No protocols found in localized crypt.</p>
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         </div>
 
         {/* Editor Side */}
@@ -151,19 +176,23 @@ export const ProtocolsManager: React.FC<Props> = ({ protocols, onSave, onDelete 
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                       <button 
+                       <motion.button 
+                        whileHover={{ scale: 1.2, color: "#f87171" }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => onDelete(editingProtocol?.id!)}
-                        className="p-3 text-slate-500 hover:text-red-400 transition-colors"
+                        className="p-3 text-slate-500 transition-colors"
                         title="Purge Node"
                        >
                          <Trash2 className="w-5 h-5" />
-                       </button>
-                       <button 
+                       </motion.button>
+                       <motion.button 
+                        whileHover={{ scale: 1.2, color: "#fff" }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => setIsEditing(false)}
-                        className="p-3 text-slate-500 hover:text-white transition-colors"
+                        className="p-3 text-slate-500 transition-colors"
                        >
                          <X className="w-6 h-6" />
-                       </button>
+                       </motion.button>
                     </div>
                   </div>
 
@@ -236,14 +265,16 @@ export const ProtocolsManager: React.FC<Props> = ({ protocols, onSave, onDelete 
                   </div>
 
                   <div className="flex justify-end pt-4">
-                    <button 
+                    <motion.button 
+                      whileHover={editingProtocol?.title && editingProtocol?.content ? { scale: 1.05, backgroundColor: "#f8fafc" } : {}}
+                      whileTap={editingProtocol?.title && editingProtocol?.content ? { scale: 0.95 } : {}}
                       onClick={handleSave}
                       disabled={!editingProtocol?.title || !editingProtocol?.content}
                       className="bg-white text-black px-10 py-5 rounded-3xl font-bold flex items-center gap-3 hover:bg-slate-200 transition-all shadow-2xl disabled:opacity-30"
                     >
                       <Save className="w-5 h-5" />
                       Commit Protocol to Collective
-                    </button>
+                    </motion.button>
                   </div>
                 </div>
               </motion.div>

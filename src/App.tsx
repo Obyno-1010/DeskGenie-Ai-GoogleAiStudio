@@ -438,12 +438,18 @@ export default function App() {
       {/* Sidebar Navigation - Sleek Interface Pattern */}
       {user && (
         <aside className="w-20 bg-white/5 backdrop-blur-3xl border-r border-white/10 flex flex-col items-center py-8 gap-10 z-50">
-          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30"
+          >
             <Zap className="text-white w-7 h-7" />
-          </div>
+          </motion.div>
           
           <div className="flex flex-col gap-8">
-            <button 
+            <motion.button 
+              whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.15)" }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setScreen('HOME')}
               className={cn(
                 "p-3 rounded-xl transition-all duration-300",
@@ -451,8 +457,10 @@ export default function App() {
               )}
             >
               <HomeIcon className="w-6 h-6" />
-            </button>
-            <button 
+            </motion.button>
+            <motion.button 
+              whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.15)" }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setScreen('KNOWLEDGE')}
               className={cn(
                 "p-3 rounded-xl transition-all duration-300",
@@ -460,8 +468,10 @@ export default function App() {
               )}
             >
               <History className="w-6 h-6" />
-            </button>
-            <button 
+            </motion.button>
+            <motion.button 
+              whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.15)" }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setScreen('PROTOCOLS')}
               className={cn(
                 "p-3 rounded-xl transition-all duration-300",
@@ -469,8 +479,10 @@ export default function App() {
               )}
             >
               <Book className="w-6 h-6" />
-            </button>
-            <button 
+            </motion.button>
+            <motion.button 
+              whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.15)" }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setScreen('SETTINGS')}
               className={cn(
                 "p-3 rounded-xl transition-all duration-300",
@@ -478,19 +490,26 @@ export default function App() {
               )}
             >
               <SettingsIcon className="w-6 h-6" />
-            </button>
+            </motion.button>
           </div>
 
           <div className="mt-auto flex flex-col items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-indigo-600 border-2 border-white/20 flex items-center justify-center font-bold text-xs">
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="w-10 h-10 rounded-full bg-indigo-600 border-2 border-white/20 flex items-center justify-center font-bold text-xs"
+            >
               {user?.displayName?.slice(0, 2).toUpperCase() || 'DO'}
-            </div>
-            <button 
+            </motion.div>
+            <motion.button 
+              whileHover={{ scale: 1.1, color: "#f87171" }}
+              whileTap={{ scale: 0.9 }}
               onClick={handleLogout}
               className="p-3 text-slate-400 hover:text-red-400 transition-colors"
             >
               <LogOut className="w-6 h-6" />
-            </button>
+            </motion.button>
           </div>
         </aside>
       )}
@@ -555,12 +574,22 @@ export default function App() {
             )}
             
             {user && (
-              <button 
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleSync}
-                className="glass-button p-2.5 rounded-xl border-white/5"
+                className="glass-button p-2.5 rounded-xl border-white/5 relative overflow-hidden"
               >
-                <Cloud className="w-5 h-5 text-slate-400" />
-              </button>
+                <div className={cn("transition-transform duration-1000", isSyncing && "animate-spin")}>
+                  <Cloud className="w-5 h-5 text-slate-400" />
+                </div>
+                {isSyncing && (
+                  <motion.div 
+                    layoutId="sync-glow"
+                    className="absolute inset-0 bg-indigo-500/20 blur-md"
+                  />
+                )}
+              </motion.button>
             )}
           </div>
         </header>
@@ -594,13 +623,15 @@ export default function App() {
                       <h3 className="text-2xl font-bold text-white tracking-tight">Agency Access</h3>
                       <p className="text-slate-400">Authenticate with your department credentials to securely sync administrative records.</p>
                     </div>
-                    <button 
+                    <motion.button 
+                      whileHover={{ scale: 1.02, backgroundColor: "#f1f5f9" }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={handleLogin}
                       className="w-full bg-white text-black py-5 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-200 transition-all font-sans shadow-xl shadow-white/5"
                     >
                       <LogIn className="w-5 h-5" />
                       Sign In with Google
-                    </button>
+                    </motion.button>
                   </GlassCard>
                 </div>
 
@@ -914,7 +945,9 @@ export default function App() {
                     <p className="text-slate-500 italic">Total Records Sync: {queries.length} entries</p>
                  </div>
                  <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/10">
-                    <button 
+                    <motion.button 
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => setKnowledgeFilter('local')}
                       className={cn(
                         "px-6 py-2 rounded-xl text-xs font-bold transition-all",
@@ -922,8 +955,10 @@ export default function App() {
                       )}
                     >
                       All Local
-                    </button>
-                    <button 
+                    </motion.button>
+                    <motion.button 
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => setKnowledgeFilter('cloud')}
                       className={cn(
                         "px-6 py-2 rounded-xl text-xs font-bold transition-all",
@@ -931,7 +966,7 @@ export default function App() {
                       )}
                     >
                       Cloud Backend
-                    </button>
+                    </motion.button>
                  </div>
               </div>
 
@@ -950,7 +985,20 @@ export default function App() {
                 <h3 className="text-xs uppercase tracking-widest text-slate-600 font-bold flex items-center gap-2 border-b border-white/5 pb-4">
                   <Activity className="w-3 h-3" /> Historical Timeline
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <motion.div 
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: { opacity: 0 },
+                    visible: {
+                      opacity: 1,
+                      transition: {
+                        staggerChildren: 0.1
+                      }
+                    }
+                  }}
+                  className="grid grid-cols-2 gap-4"
+                >
                   {queries
                     .filter(q => {
                       const matchesSearch = q.text.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -959,7 +1007,14 @@ export default function App() {
                       return matchesSearch && matchesFilter;
                     })
                     .map((q) => (
-                    <GlassCard 
+                    <motion.div
+                      key={q.id}
+                      variants={{
+                        hidden: { opacity: 0, y: 20 },
+                        visible: { opacity: 1, y: 0 }
+                      }}
+                    >
+                      <GlassCard 
                       key={q.id} 
                       className="p-6 rounded-[2rem] border-white/5 hover:border-indigo-500/30 hover:bg-white/10 transition-all cursor-pointer group"
                       onClick={() => {
@@ -999,6 +1054,7 @@ export default function App() {
                         </div>
                       </div>
                     </GlassCard>
+                  </motion.div>
                   ))}
                   {queries.length === 0 && (
                     <div className="col-span-2 text-center py-40 text-slate-700 space-y-4">
@@ -1012,7 +1068,7 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                </div>
+                </motion.div>
               </div>
             </motion.div>
           )}

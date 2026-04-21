@@ -27,5 +27,11 @@
 # firestore.rules is code but might be seen differently
 firestore.rules linguist-language=Firestore-Security-Rules
 
+# Environment files
+.env*        text eol=lf
+.gitignore   text eol=lf
+.prettierrc  text eol=lf
+*.svg        text eol=lf
+
 # Ensure lockfiles are treated appropriately
 package-lock.json linguist-generated

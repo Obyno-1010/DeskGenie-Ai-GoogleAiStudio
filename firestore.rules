@@ -13,9 +13,12 @@ service cloud.firestore {
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
     
-    // Admin check - assumes an 'admins' collection exists
+    // Admin check
     function isAdmin() { 
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); 
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'obinnachris49@gmail.com'
+      ); 
     }
 
     // Validation Blueprints
@@ -24,7 +27,8 @@ service cloud.firestore {
              data.uid == request.auth.uid &&
              data.email is string && data.email.size() <= 256 &&
              data.role in ['officer', 'admin'] &&
-             (data.get('displayName', '') is string && data.get('displayName', '').size() <= 128);
+             (data.get('displayName', '') is string && data.get('displayName', '').size() <= 128) &&
+             (data.get('lastLogin', request.time) is timestamp);
     }
 
     function isValidQuery(data) {
@@ -36,19 +40,29 @@ service cloud.firestore {
              data.replyStyle in ['formal', 'concise', 'detailed'] &&
              data.userId == request.auth.uid &&
              (data.get('response', '') is string && data.get('response', '').size() <= 10000) &&
-             (data.get('language', '') is string && data.get('language', '').size() <= 100) &&
+             (data.get('language', 'English') is string && data.get('language', '').size() <= 100) &&
              (data.get('isSynced', true) is bool) &&
              (data.get('syncedAt', request.time) is timestamp);
     }
 
+    function isValidProtocol(data) {
+      return data.keys().hasAll(['id', 'title', 'content', 'lastUpdated']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.content is string && data.content.size() <= 20000 &&
+             data.lastUpdated is int &&
+             (data.get('keywords', []) is list) &&
+             (data.get('category', 'general') is string);
+    }
+
     // Users Collection
     match /users/{userId} {
-      allow get: if isSignedIn(); // Allow discovery for collaboration if needed, but restrict keys
+      allow get: if isSignedIn();
       allow list: if isAdmin();
       
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if isOwner(userId) && isValidUser(incoming()) && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'role']);
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'role', 'lastLogin', 'email', 'uid']);
     }
 
     // User's Queries
@@ -60,9 +74,21 @@ service cloud.firestore {
                     incoming().id == queryId;
       
       allow update: if isOwner(userId) && isValidQuery(incoming()) &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['response', 'replyStyle', 'intent']);
+                    incoming().diff(existing()).affectedKeys().hasOnly(['response', 'replyStyle', 'intent', 'isSynced', 'syncedAt', 'language']);
                     
       allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // Grounding Protocols
+    match /protocols {
+      allow list: if isSignedIn();
+      match /{protocolId} {
+        allow get: if isSignedIn();
+        allow create: if isAdmin() && isValidProtocol(incoming());
+        allow update: if isAdmin() && isValidProtocol(incoming()) && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'keywords', 'lastUpdated', 'category']);
+        allow delete: if isAdmin();
+      }
     }
     
     // Admins helper collection

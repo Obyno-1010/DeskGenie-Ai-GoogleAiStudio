@@ -28,10 +28,13 @@ import {
   Zap,
   Activity,
   History,
-  Info
+  Info,
+  AlertTriangle,
+  Book
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import { ProtocolsManager } from './components/ProtocolsManager';
 import { 
   signInWithPopup, 
   GoogleAuthProvider, 
@@ -44,13 +47,15 @@ import { auth, db } from './lib/firebase';
 import { cn } from './lib/utils';
 import { GlassCard } from './components/GlassCard';
 import { VoiceWaveform } from './components/VoiceWaveform';
+import { ConfirmationModal } from './components/ConfirmationModal';
 import { useSpeech } from './hooks/useSpeech';
 import { analyzeIntent, generateProfessionalResponse } from './lib/gemini';
 import { saveQuery, getAllQueries, markAsSynced, deleteQuery, clearAllQueries } from './lib/storage';
 import { syncQueries, saveToRemote, deleteFromRemote } from './lib/sync';
-import { DeskQuery, Intent, ResponseStyle } from './types';
+import { saveProtocol, getAllProtocols, deleteProtocol } from './lib/protocols';
+import { DeskQuery, Intent, ResponseStyle, Protocol } from './types';
 
-type Screen = 'AUTH' | 'HOME' | 'RECORDING' | 'RESPONSE' | 'KNOWLEDGE' | 'SETTINGS';
+type Screen = 'AUTH' | 'HOME' | 'RECORDING' | 'RESPONSE' | 'KNOWLEDGE' | 'SETTINGS' | 'PROTOCOLS';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -60,13 +65,29 @@ export default function App() {
   const [currentQuery, setCurrentQuery] = useState<DeskQuery | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [queries, setQueries] = useState<DeskQuery[]>([]);
+  const [protocols, setProtocols] = useState<Protocol[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<ResponseStyle>('formal');
   const [selectedLanguage, setSelectedLanguage] = useState('English');
   const [copied, setCopied] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [knowledgeFilter, setKnowledgeFilter] = useState<'local' | 'cloud'>('local');
+  const [isOnline, setIsOnline] = useState(true);
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: 'danger' | 'warning';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'danger'
+  });
 
   const { isRecording, transcript, startRecording, stopRecording, speak, setTranscript } = useSpeech();
 
@@ -75,28 +96,34 @@ export default function App() {
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
+  const showError = (msg: string) => {
+    setErrorMessage(msg);
+    setTimeout(() => setErrorMessage(null), 5000);
+  };
+
   // Test Connection
   useEffect(() => {
     async function testConnection() {
       try {
-        // Try a non-existent doc in a valid sub-collection structure to avoid rule issues if possible,
-        // but just checking connectivity to the root of the db instance.
         await getDocFromServer(doc(db, 'system', 'connectivity_check'));
-        console.log("Firebase connection established.");
+        setIsOnline(true);
       } catch (error: any) {
         if (error?.code === 'permission-denied') {
-          console.log("Firebase connected (Permission verified).");
+          setIsOnline(true);
           return;
         }
         
-        console.warn("Firebase connectivity warning:", error?.message || error);
-        
+        setIsOnline(false);
         if(error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Critical: Could not reach Firestore. Please check if your project is correctly provisioned or if you are in an offline environment.");
+          console.error("Critical: Could not reach Firestore.");
         }
       }
     }
     testConnection();
+    
+    // Periodically check connection
+    const interval = setInterval(testConnection, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Auth Listener
@@ -121,13 +148,66 @@ export default function App() {
     }
   }, [user]);
 
+  // Load protocols
+  useEffect(() => {
+    if (user) {
+      getAllProtocols().then(setProtocols);
+    }
+  }, [user]);
+
+  const handleSaveProtocol = async (protocol: Protocol) => {
+    try {
+      await saveProtocol(protocol);
+      setProtocols(prev => {
+        const index = prev.findIndex(p => p.id === protocol.id);
+        if (index >= 0) {
+          const updated = [...prev];
+          updated[index] = protocol;
+          return updated;
+        }
+        return [protocol, ...prev];
+      });
+      showSuccess("Grounding protocol localized and synchronized.");
+    } catch (err) {
+      console.error("Protocol Save Failure:", err);
+      showError("Protocol rejected by the crypt. Verify administrative clearance.");
+    }
+  };
+
+  const handleDeleteProtocol = (id: string) => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Purge Grounding Protocol',
+      message: 'This operation will permanently remove this knowledge node from the intelligence collective. Proceed?',
+      onConfirm: async () => {
+        try {
+          await deleteProtocol(id);
+          setProtocols(prev => prev.filter(p => p.id !== id));
+          showSuccess("Protocol purged from archives.");
+          setModalConfig(prev => ({ ...prev, isOpen: false }));
+        } catch (err) {
+          console.error("Protocol Purge Failure:", err);
+          showError("Protocol purge rejected. Security protocols might be active.");
+        }
+      },
+      type: 'danger'
+    });
+  };
+
   const handleSync = async () => {
     if (!user || isSyncing) return;
     setIsSyncing(true);
-    await syncQueries();
-    const all = await getAllQueries();
-    setQueries(all);
-    setIsSyncing(false);
+    try {
+      await syncQueries();
+      const all = await getAllQueries();
+      setQueries(all);
+      showSuccess("Intelligence archives synchronized with cloud nodes.");
+    } catch (err) {
+      console.error("Sync Protocol Failure:", err);
+      showError("Synchronization interrupted. Data may be inconsistent between localized and cloud nodes.");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleLogin = async () => {
@@ -157,7 +237,14 @@ export default function App() {
     setScreen('AUTH');
   };
 
-  const handleStartRecording = () => {
+  // Recording Auto-return and Inline Sync
+  useEffect(() => {
+    if (!isRecording && screen === 'RECORDING') {
+      handleStopRecording();
+    }
+  }, [isRecording, screen]);
+
+  const handleStartRecording = (isInline: boolean = false) => {
     const langMap: Record<string, string> = {
       'English': 'en-US',
       'Yoruba': 'yo-NG',
@@ -165,23 +252,39 @@ export default function App() {
       'Hausa': 'ha-NG'
     };
     setTranscript('');
-    setScreen('RECORDING');
+    if (!isInline) {
+      setScreen('RECORDING');
+    }
     startRecording(langMap[selectedLanguage] || 'en-US');
   };
 
   const handleDeleteQuery = async (id: string) => {
-    await deleteQuery(id);
-    if (user) await deleteFromRemote(id);
-    setQueries(prev => prev.filter(q => q.id !== id));
-    showSuccess("Record deleted.");
+    setModalConfig({
+      isOpen: true,
+      title: "Confirm Deletion",
+      message: "This action will permanently remove this record from the registry and cloud archives. This cannot be undone.",
+      onConfirm: async () => {
+        await deleteQuery(id);
+        if (user) await deleteFromRemote(id);
+        setQueries(prev => prev.filter(q => q.id !== id));
+        showSuccess("Record deleted.");
+      },
+      type: 'danger'
+    });
   };
 
   const handleClearData = async () => {
-    if (confirm("Are you sure you want to clear all local application data? This will not affect cloud records.")) {
-      await clearAllQueries();
-      setQueries([]);
-      showSuccess("Local records purged.");
-    }
+    setModalConfig({
+      isOpen: true,
+      title: "Purge All Data",
+      message: "You are about to delete all local intelligence records. This operation will cleanse the local registry but maintain cloud archives.",
+      onConfirm: async () => {
+        await clearAllQueries();
+        setQueries([]);
+        showSuccess("Local records purged.");
+      },
+      type: 'danger'
+    });
   };
 
   const handleTemplateClick = (text: string) => {
@@ -199,9 +302,18 @@ export default function App() {
 
   const handleStopRecording = () => {
     stopRecording();
-    setInputText(transcript);
     setScreen('HOME');
   };
+
+  // We need to capture the transcript when it changes to show live in HOME if we want, 
+  // but for now, let's keep the screen switch but ensure it returns data correctly.
+  
+  useEffect(() => {
+    if (!isRecording && transcript && screen === 'HOME') {
+      setInputText(prev => prev ? `${prev}\n${transcript}` : transcript);
+      setTranscript('');
+    }
+  }, [isRecording, transcript, screen]);
 
   const handleProcessQuery = async (text: string) => {
     if (!text.trim()) return;
@@ -209,8 +321,24 @@ export default function App() {
     setScreen('RESPONSE');
     
     try {
-      const intent = await analyzeIntent(text);
-      const response = await generateProfessionalResponse(text, intent, selectedStyle, selectedLanguage);
+      // 1. AI Intent Analysis
+      let intent: Intent;
+      try {
+        intent = await analyzeIntent(text);
+      } catch (err) {
+        console.error("Intent Analysis Failed:", err);
+        showError("The agency's linguistic processor encountered an anomaly during intent analysis. Defaulting to general protocol.");
+        intent = 'general';
+      }
+
+      // 2. AI Response Generation
+      let responseText: string;
+      try {
+        responseText = await generateProfessionalResponse(text, intent, selectedStyle, selectedLanguage, protocols);
+      } catch (err) {
+        console.error("Response Generation Failed:", err);
+        throw new Error("Critical failure in response synthesizer. AI node timed out or rejected the request.");
+      }
       
       const newQuery: DeskQuery = {
         id: crypto.randomUUID(),
@@ -218,20 +346,36 @@ export default function App() {
         text,
         intent,
         replyStyle: selectedStyle,
-        response,
+        response: responseText,
         isSynced: false,
         language: selectedLanguage
       };
 
-      setCurrentQuery(newQuery);
-      await saveQuery(newQuery);
-      if (user) {
-        await saveToRemote(newQuery);
-        await markAsSynced(newQuery.id);
+      // 3. Local Persistence
+      try {
+        await saveQuery(newQuery);
+        setQueries(prev => [newQuery, ...prev]);
+        setCurrentQuery(newQuery);
+      } catch (err) {
+        console.error("Local Storage Failed:", err);
+        showError("Intelligence record could not be persisted to the local crypt. Browser storage quota might be exceeded.");
       }
-      setQueries(prev => [newQuery, ...prev]);
-    } catch (error) {
-      console.error(error);
+
+      // 4. Remote Sync (Best Effort)
+      if (user) {
+        try {
+          await saveToRemote(newQuery);
+          await markAsSynced(newQuery.id);
+          setQueries(prev => prev.map(q => q.id === newQuery.id ? { ...q, isSynced: true } : q));
+        } catch (err) {
+          console.error("Remote Sync Failed:", err);
+          // Non-critical: User can try manual sync later
+        }
+      }
+    } catch (error: any) {
+      console.error("Query Processing Failed:", error);
+      showError(error.message || "A catastrophic intelligence failure occurred. Please report to the secretariat.");
+      setScreen('HOME');
     } finally {
       setIsAnalyzing(false);
     }
@@ -248,20 +392,26 @@ export default function App() {
     setSelectedStyle(style);
     setIsAnalyzing(true);
     try {
-      const response = await generateProfessionalResponse(currentQuery.text, currentQuery.intent, style, selectedLanguage);
+      const response = await generateProfessionalResponse(currentQuery.text, currentQuery.intent, style, selectedLanguage, protocols);
       const updatedQuery = { ...currentQuery, response, replyStyle: style };
-      setCurrentQuery(updatedQuery);
       
       // Update in storage and list
-      await saveQuery(updatedQuery);
-      if (user) {
-        await saveToRemote(updatedQuery);
-        await markAsSynced(updatedQuery.id);
+      try {
+        await saveQuery(updatedQuery);
+        if (user) {
+          await saveToRemote(updatedQuery);
+          await markAsSynced(updatedQuery.id);
+        }
+        setQueries(prev => prev.map(q => q.id === updatedQuery.id ? updatedQuery : q));
+        setCurrentQuery(updatedQuery);
+        showSuccess(`Style refined to ${style}.`);
+      } catch (err) {
+        console.error("Persistence error during style change:", err);
+        showError("Style refined but failed to persist to localized registry.");
       }
-      setQueries(prev => prev.map(q => q.id === updatedQuery.id ? updatedQuery : q));
-      showSuccess(`Style refined to ${style}.`);
     } catch (error) {
-      console.error(error);
+      console.error("AI node failure during style refinement:", error);
+      showError("Regional AI synthesizer failed to process style refinement.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -312,6 +462,15 @@ export default function App() {
               <History className="w-6 h-6" />
             </button>
             <button 
+              onClick={() => setScreen('PROTOCOLS')}
+              className={cn(
+                "p-3 rounded-xl transition-all duration-300",
+                screen === 'PROTOCOLS' ? "bg-white/10 text-white shadow-xl shadow-white/5" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <Book className="w-6 h-6" />
+            </button>
+            <button 
               onClick={() => setScreen('SETTINGS')}
               className={cn(
                 "p-3 rounded-xl transition-all duration-300",
@@ -350,6 +509,18 @@ export default function App() {
               {successMessage}
             </motion.div>
           )}
+
+          {errorMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-red-600 text-white rounded-full font-bold shadow-2xl flex items-center gap-3 border border-red-500"
+            >
+              <AlertTriangle className="w-5 h-5" />
+              {errorMessage}
+            </motion.div>
+          )}
         </AnimatePresence>
 
         {/* Header */}
@@ -357,8 +528,13 @@ export default function App() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               DeskGenie AI 
-              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] uppercase tracking-wider rounded border border-emerald-500/30">
-                Offline Mode
+              <span className={cn(
+                "px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border transition-colors",
+                isOnline 
+                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" 
+                  : "bg-red-500/20 text-red-400 border-red-500/30"
+              )}>
+                {isOnline ? "Online Service" : "Offline Mode"}
               </span>
             </h1>
             <p className="text-slate-400 text-sm">Administrative Assistant — Branch Secretariat</p>
@@ -504,20 +680,42 @@ export default function App() {
                     <div className="flex flex-col gap-8 flex-1">
                        <div className="space-y-4">
                         <h2 className="text-4xl font-bold text-white tracking-tight">How can I assist <br /><span className="text-indigo-400">The Agency today?</span></h2>
-                        <p className="text-slate-500">Secure Administrative Pipeline • Llama-3-Quik Active</p>
+                        <p className="text-slate-500 uppercase tracking-widest text-[10px] font-bold">Secure Administrative Pipeline • Gemini Intelligence Active</p>
                       </div>
 
                       <div className="relative group">
                         <textarea
                           value={inputText}
                           onChange={(e) => setInputText(e.target.value)}
-                          placeholder="Type an administrative query or complaint..."
+                          placeholder="Type or use Voice Protocol for administrative queries..."
                           className="w-full bg-white/5 rounded-[2rem] p-8 min-h-[240px] resize-none outline-none text-xl border border-white/10 focus:border-indigo-500/50 transition-all font-medium placeholder-slate-600 text-white"
                         />
-                        <div className="absolute bottom-6 right-6">
+                        
+                        {isRecording && screen === 'HOME' && (
+                          <div className="absolute inset-0 bg-indigo-950/20 backdrop-blur-sm rounded-[2rem] flex flex-col items-center justify-center p-8 space-y-4">
+                            <VoiceWaveform isRecording={true} />
+                            <p className="text-indigo-300 font-medium text-center animate-pulse">
+                              {transcript || "Listening to your instructions..."}
+                            </p>
+                          </div>
+                        )}
+                        <div className="absolute bottom-6 right-6 flex items-center gap-4 z-[10]">
+                           <button 
+                            onClick={isRecording ? handleStopRecording : () => handleStartRecording(true)}
+                            className={cn(
+                              "w-16 h-16 rounded-[2rem] flex items-center justify-center transition-all shadow-2xl",
+                              isRecording 
+                                ? "bg-red-500/20 text-red-500 border border-red-500/30 animate-pulse" 
+                                : "bg-white/5 text-slate-400 hover:text-white border border-white/10 hover:border-white/20"
+                            )}
+                            title={isRecording ? "Stop Recording" : "Start Voice Input"}
+                          >
+                            <Mic className={cn("w-6 h-6", isRecording && "fill-current")} />
+                          </button>
+                          
                            <button 
                             onClick={() => handleProcessQuery(inputText)}
-                            disabled={!inputText.trim() || isAnalyzing}
+                            disabled={!inputText.trim() || isAnalyzing || isRecording}
                             className="w-16 h-16 rounded-[2rem] bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed group-hover:scale-110 shadow-2xl shadow-indigo-600/40"
                           >
                             <Send className="w-7 h-7 text-white" />
@@ -529,11 +727,14 @@ export default function App() {
                     <div className="mt-auto flex items-center justify-between pt-8 border-t border-white/5">
                       <div className="flex items-center gap-6">
                         <button 
-                          onClick={handleStartRecording}
-                          className="flex items-center gap-3 text-slate-400 hover:text-indigo-400 transition-colors font-bold uppercase tracking-widest text-[10px]"
+                          onClick={isRecording ? handleStopRecording : () => handleStartRecording(false)}
+                          className={cn(
+                            "flex items-center gap-3 transition-colors font-bold uppercase tracking-widest text-[10px]",
+                            isRecording ? "text-red-400 animate-pulse font-black" : "text-slate-400 hover:text-indigo-400"
+                          )}
                         >
-                          <Mic className="w-5 h-5" />
-                          <span>Voice Protocol</span>
+                          <Mic className={cn("w-5 h-5", isRecording && "animate-bounce")} />
+                          <span>{isRecording ? "Stop Recording" : "Voice Protocol"}</span>
                         </button>
                         <div className="h-4 w-[1px] bg-slate-800" />
                         <div className="flex items-center gap-2">
@@ -928,8 +1129,33 @@ export default function App() {
               </div>
             </motion.div>
           )}
+
+          {screen === 'PROTOCOLS' && (
+            <motion.div
+              key="protocols"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="h-full"
+            >
+              <ProtocolsManager 
+                protocols={protocols}
+                onSave={handleSaveProtocol}
+                onDelete={handleDeleteProtocol}
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
+      
+      <ConfirmationModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+      />
     </div>
   </div>
   );

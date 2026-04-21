@@ -20,3 +20,12 @@ export interface KnowledgeItem {
   answer: string;
   keywords: string[];
 }
+
+export interface Protocol {
+  id: string;
+  title: string;
+  content: string;
+  keywords: string[];
+  lastUpdated: number;
+  category: string;
+}

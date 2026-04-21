@@ -28,6 +28,20 @@
         "userId": { "type": "string" }
       },
       "required": ["id", "timestamp", "text", "intent", "replyStyle", "userId"]
+    },
+    "Protocol": {
+      "title": "Grounding Protocol",
+      "description": "Local knowledge or directive for the AI",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "lastUpdated": { "type": "integer" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "title", "content", "lastUpdated"]
     }
   },
   "firestore": {
@@ -38,6 +52,10 @@
     "/users/{userId}/queries/{queryId}": {
       "schema": "DeskQuery",
       "description": "User's processed queries"
+    },
+    "/protocols/{protocolId}": {
+      "schema": "Protocol",
+      "description": "Global knowledge base for AI grounding"
     }
   }
 }

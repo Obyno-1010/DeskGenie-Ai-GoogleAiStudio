@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Admin check - assumes an 'admins' collection exists
+    function isAdmin() { 
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); 
+    }
+
+    // Validation Blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.keys().size() <= 6 &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256 &&
+             data.role in ['officer', 'admin'] &&
+             (data.get('displayName', '') is string && data.get('displayName', '').size() <= 128);
+    }
+
+    function isValidQuery(data) {
+      return data.keys().hasAll(['id', 'timestamp', 'text', 'intent', 'replyStyle', 'userId']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.timestamp is int &&
+             data.text is string && data.text.size() <= 5000 &&
+             data.intent in ['complaint', 'inquiry', 'emergency', 'general'] &&
+             data.replyStyle in ['formal', 'concise', 'detailed'] &&
+             data.userId == request.auth.uid;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn(); // Allow discovery for collaboration if needed, but restrict keys
+      allow list: if isAdmin();
+      
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'role']);
+    }
+
+    // User's Queries
+    match /users/{userId}/queries/{queryId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) || isAdmin();
+      
+      allow create: if isOwner(userId) && isValidId(queryId) && isValidQuery(incoming()) &&
+                    incoming().id == queryId;
+      
+      allow update: if isOwner(userId) && isValidQuery(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['response', 'replyStyle', 'intent']);
+                    
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // Admins helper collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+    }
+  }
+}

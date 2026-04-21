@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["officer", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "DeskQuery": {
+      "title": "Desk Query",
+      "description": "A query processed by the desk officer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "integer" },
+        "text": { "type": "string" },
+        "intent": { "type": "string", "enum": ["complaint", "inquiry", "emergency", "general"] },
+        "replyStyle": { "type": "string", "enum": ["formal", "concise", "detailed"] },
+        "response": { "type": "string" },
+        "language": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "text", "intent", "replyStyle", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Public and private user profiles"
+    },
+    "/users/{userId}/queries/{queryId}": {
+      "schema": "DeskQuery",
+      "description": "User's processed queries"
+    }
+  }
+}

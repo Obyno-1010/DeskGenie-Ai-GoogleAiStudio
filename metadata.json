@@ -1,0 +1,6 @@
+{
+  "name": "DeskGenie AI",
+  "description": "A cross-platform AI-assisted Desk Officer App featuring voice/text input, intent detection, and professional response generation.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["speech-to-text", "text-to-speech", "ai-assisted"]
+}
